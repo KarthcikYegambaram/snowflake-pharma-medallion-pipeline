@@ -4,107 +4,524 @@
 ![SQL](https://img.shields.io/badge/SQL-Advanced-green)
 ![CDC](https://img.shields.io/badge/CDC-Streams%20%26%20Tasks-orange)
 ![Architecture](https://img.shields.io/badge/Architecture-Medallion-purple)
+![SCD2](https://img.shields.io/badge/SCD-Type%202-red)
 
-## Project Overview
+---
 
-This project demonstrates a complete enterprise-grade Medallion Architecture implementation in Snowflake using:
+# Project Overview
 
-- Bronze, Silver, Gold layers
+This project demonstrates a complete enterprise-grade Medallion Architecture implementation in Snowflake using real-world data engineering concepts and production-style ELT processing.
+
+The pipeline processes pharmaceutical sales transactional data through Bronze, Silver, and Gold layers while supporting:
+
+- Incremental data loading
 - CDC (Change Data Capture)
-- Snowflake Streams
-- Snowflake Tasks
+- Insert / Update / Delete handling
+- Soft Deletes
 - SCD Type 2 Dimensions
-- Soft Deletes
-- Audit Logging
-- Data Quality Validation
-- Fact and Dimension Modeling
+- Streams & Tasks orchestration
+- Data validation rules
+- Rejected record handling
+- Audit logging
+- Fact & Dimension modeling
 
-The pipeline processes pharmaceutical sales transactional data and supports:
+The solution is fully built using Snowflake SQL and Snowflake-native features.
 
-- Inserts
-- Updates
-- Deletes
-- Soft Deletes
-- Incremental Loads
-- Historical Tracking
+---
 
-## Architecture
+# Architecture Overview
 
-![Architecture](images/medallion-architecture.png)
+## Medallion Architecture
 
-### Bronze Layer
+```text
+SOURCE TABLE
+     │
+     ▼
+STREAM (CDC)
+     │
+     ▼
+BRONZE LAYER
+(Raw ingestion)
+     │
+     ▼
+STREAM
+     │
+     ▼
+SILVER LAYER
+(Cleansed & validated)
+     │
+     ├──────────────► REJECTED RECORDS
+     │
+     ▼
+STREAMS
+     │
+     ▼
+GOLD LAYER
+(Dimensions + Fact Tables)
+```
 
-Raw ingestion layer storing CDC records directly from source tables.
+---
 
-Features:
-- Streams-based ingestion
-- Raw historical storage
+# Project Features
+
+## Bronze Layer
+
+The Bronze layer stores raw CDC data from the source system.
+
+### Features
+
+- Raw historical ingestion
+- CDC capture using Streams
+- Insert / Update / Delete handling
 - Metadata tracking
+- Batch tracking
 - Hash diff generation
-- Batch ID tracking
+- Soft delete identification
 
-### Silver Layer
+### Key Components
 
-Validated and transformed layer implementing business rules.
+- Source Stream
+- Bronze Stream
+- Bronze Task
+- Raw ingestion table
 
-Features:
-- Data cleansing
-- Validation checks
-- Reject handling
-- Soft deletes
-- Incremental merge logic
+---
 
-### Gold Layer
+## Silver Layer
 
-Business-ready dimensional model.
+The Silver layer performs data cleansing, validation, and transformation.
 
-Features:
-- Star schema
+### Features
+
+- Data quality validation
+- Standardization
+- Type casting
+- Business rule enforcement
+- Incremental MERGE processing
+- Soft delete propagation
+- Rejected records tracking
+
+### Validation Examples
+
+- Invalid dates
+- Invalid payment methods
+- Null branch IDs
+- Invalid quantities
+- Invalid discount rates
+- Expired medicine validation
+
+### Additional Components
+
+- Rejected records table
+- Audit log table
+- Temporary staging tables
+
+---
+
+## Gold Layer
+
+The Gold layer provides analytics-ready dimensional models.
+
+### Features
+
+- Star schema implementation
 - SCD Type 2 dimensions
-- Fact table loading
 - Historical tracking
-- Analytics-ready model
+- Fact table loading
+- Surrogate key generation
+- Business-ready reporting layer
 
-## CDC Features
+### Dimension Tables
 
-The project supports:
+- DIM_DATE
+- DIM_BRANCH
+- DIM_CUSTOMER
+- DIM_MEDICINE
+- DIM_SUPPLIER
 
-- INSERT handling
-- UPDATE handling
-- DELETE handling
-- SOFT DELETE implementation
-- HASH DIFF change detection
-- Incremental processing
+### Fact Table
 
-## SCD Type 2 Implementation
+- FACT_SALES
 
-Dimensions support full historical tracking using:
+---
 
-- _IS_CURRENT
-- _EFFECTIVE_FROM
-- _EFFECTIVE_TO
+# CDC (Change Data Capture)
 
-## Technologies Used
+This project supports complete CDC processing using Snowflake Streams.
 
-- Snowflake
-- SQL
+## Supported Operations
+
+| Operation | Supported |
+|---|---|
+| INSERT | Yes |
+| UPDATE | Yes |
+| DELETE | Yes |
+| SOFT DELETE | Yes |
+| INCREMENTAL LOAD | Yes |
+
+---
+
+# SCD Type 2 Implementation
+
+The project implements Slowly Changing Dimension Type 2 logic for historical tracking.
+
+## SCD2 Columns
+
+| Column | Purpose |
+|---|---|
+| _IS_CURRENT | Current active record |
+| _EFFECTIVE_FROM | Record start timestamp |
+| _EFFECTIVE_TO | Record expiry timestamp |
+
+## SCD2 Flow
+
+1. Existing record expires
+2. Old row marked inactive
+3. New version inserted
+4. Full history preserved
+
+---
+
+# Snowflake Features Used
+
+## Core Snowflake Features
+
 - Streams
 - Tasks
-- Change Data Capture (CDC)
-- Data Warehousing
+- MERGE
+- HASH DIFF
+- AUTOINCREMENT
+- UUID_STRING()
+- CHANGE_TRACKING
+- INFORMATION_SCHEMA
+- TEMP TABLES
+
+---
+
+# Data Quality Rules
+
+The Silver layer validates multiple business rules.
+
+## Validation Categories
+
+### Transaction Validation
+
+- Transaction ID cannot be NULL
+- Valid transaction date required
+
+### Customer Validation
+
+- Age between 0 and 120
+- Gender validation
+- Customer city required
+
+### Medicine Validation
+
+- Medicine ID required
+- Dosage form validation
+- Expiry date validation
+
+### Financial Validation
+
+- Quantity > 0
+- Price > 0
+- Discount between 0 and 1
+
+---
+
+# Soft Delete Logic
+
+Deletes from source systems are not physically removed.
+
+Instead:
+
+```sql
+_IS_SOFT_DELETED = TRUE
+```
+
+This preserves historical auditability and supports enterprise compliance requirements.
+
+---
+
+# Audit Logging
+
+Pipeline execution is fully monitored using audit logging.
+
+## Audit Metrics Captured
+
+- Rows processed
+- Rows inserted
+- Rows updated
+- Rows rejected
+- Execution timestamp
+- Batch ID
+- Task status
+
+---
+
+# Project Folder Structure
+
+```text
+snowflake-enterprise-medallion-pipeline/
+│
+├── README.md
+├── LICENSE
+│
+├── sql/
+│   ├── 01_create_schemas.sql
+│   ├── 02_bronze_layer.sql
+│   ├── 03_silver_layer.sql
+│   ├── 04_gold_layer.sql
+│   ├── 05_streams_tasks.sql
+│   ├── 06_fact_tables.sql
+│   ├── 07_monitoring_queries.sql
+│   └── full_pipeline.sql
+│
+├── sample-data/
+│   └── pharma_sales_sample.csv
+│
+└── images/
+    ├── medallion-architecture.png
+    ├── streams-tasks-flow.png
+    ├── scd2-flow.png
+    └── star-schema.png
+```
+
+---
+
+# Pipeline Flow
+
+## End-to-End Flow
+
+```text
+Source Table
+    │
+    ▼
+Source Stream
+    │
+    ▼
+Bronze Task
+    │
+    ▼
+Bronze Table
+    │
+    ▼
+Bronze Stream
+    │
+    ▼
+Silver Task
+    │
+    ▼
+Silver Table
+    │
+    ├────────► Rejected Records
+    │
+    ▼
+Gold Streams
+    │
+    ├────────► Dimension Task
+    │
+    └────────► Fact Task
+```
+
+---
+
+# Monitoring Queries
+
+## Task Monitoring
+
+```sql
+SHOW TASKS IN DATABASE KARTHICKY_DB;
+```
+
+## Stream Monitoring
+
+```sql
+SHOW STREAMS IN DATABASE KARTHICKY_DB;
+```
+
+## Task History
+
+```sql
+SELECT *
+FROM TABLE(
+KARTHICKY_DB.INFORMATION_SCHEMA.TASK_HISTORY()
+)
+ORDER BY SCHEDULED_TIME DESC;
+```
+
+---
+
+# How to Run the Project
+
+## Step 1
+
+Create database:
+
+```sql
+CREATE DATABASE KARTHICKY_DB;
+```
+
+## Step 2
+
+Upload source data into:
+
+```text
+PUBLIC.PHARMA_SALES
+```
+
+## Step 3
+
+Enable change tracking:
+
+```sql
+ALTER TABLE KARTHICKY_DB.PUBLIC.PHARMA_SALES
+SET CHANGE_TRACKING = TRUE;
+```
+
+## Step 4
+
+Run SQL scripts in order.
+
+## Step 5
+
+Resume Snowflake Tasks.
+
+```sql
+ALTER TASK TASK_LOAD_BRONZE RESUME;
+ALTER TASK TASK_LOAD_SILVER RESUME;
+ALTER TASK TASK_LOAD_GOLD_DIMS RESUME;
+ALTER TASK TASK_LOAD_FACT_SALES RESUME;
+```
+
+---
+
+# Performance Optimizations
+
+The pipeline includes several optimization strategies.
+
+## Optimizations Used
+
+- Incremental processing
+- Stream-based CDC
+- Hash-based change detection
+- MERGE operations
+- Task scheduling
+- Temporary staging tables
+- Minimal data movement
+
+---
+
+# Enterprise Concepts Covered
+
+This project demonstrates practical enterprise data engineering concepts.
+
+## Concepts Implemented
+
 - Medallion Architecture
-- Star Schema
-- SCD Type 2
-
-## Key Engineering Concepts
-
-- Enterprise Data Warehousing
-- Incremental Data Loading
 - CDC Pipelines
-- Streams & Tasks
-- Medallion Architecture
-- SCD Type 2
-- Data Validation
-- Audit Logging
+- Enterprise ELT
+- Incremental Data Loading
+- Data Warehousing
 - Dimensional Modeling
-- ETL/ELT
+- SCD Type 2
+- Audit Logging
+- Data Quality Management
+- Soft Deletes
+- Star Schema
+- Snowflake Streams
+- Snowflake Tasks
+
+---
+
+# Technology Stack
+
+| Technology | Usage |
+|---|---|
+| Snowflake | Cloud Data Warehouse |
+| SQL | ELT Development |
+| Streams | CDC Processing |
+| Tasks | Workflow Orchestration |
+| SCD Type 2 | Historical Tracking |
+| Medallion Architecture | Data Layering |
+
+---
+
+# Sample Use Cases
+
+This architecture can be adapted for:
+
+- Retail analytics
+- Pharmaceutical analytics
+- Banking pipelines
+- Insurance systems
+- Healthcare reporting
+- Enterprise data warehouses
+- Real-time CDC pipelines
+
+---
+
+# Future Improvements
+
+Potential future enhancements:
+
+- Snowpipe integration
+- Dynamic Tables
+- Error notifications
+- Email alerts
+- Row-level security
+- Data masking
+- dbt integration
+- CI/CD deployment
+- Terraform automation
+- Airflow orchestration
+
+---
+
+# Resume Highlights
+
+This project demonstrates experience with:
+
+- Advanced Snowflake SQL
+- Enterprise Data Engineering
+- CDC Architecture
+- Data Warehouse Design
+- SCD Type 2 Modeling
+- Production ELT Pipelines
+- Incremental Processing
+- Audit Frameworks
+- Data Validation
+- Workflow Automation
+
+---
+
+# Author
+
+## Karthick Yegambaram
+
+Data Engineer | Snowflake | SQL | Medallion Architecture | CDC Pipelines
+
+---
+
+# GitHub Topics
+
+```text
+snowflake
+data-engineering
+cdc
+streams
+tasks
+sql
+etl
+elt
+medallion-architecture
+scd-type-2
+data-warehouse
+analytics-engineering
+```
+
+---
+
+# License
+
+This project is licensed under the MIT License.
