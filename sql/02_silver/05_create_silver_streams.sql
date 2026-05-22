@@ -1,1 +1,12 @@
 
+-- ============================================================
+-- SILVER STREAMS
+-- ============================================================
+
+CREATE OR REPLACE STREAM KARTHICKY_DB."2_SILVER".STREAM_SILVER_TO_GOLD
+
+ON TABLE KARTHICKY_DB."2_SILVER".PHARMA_SALES_CLEAN;
+
+CREATE OR REPLACE STREAM KARTHICKY_DB."2_SILVER".STREAM_SILVER_TO_FACT
+
+ON TABLE KARTHICKY_DB."2_SILVER".PHARMA_SALES_CLEAN;
